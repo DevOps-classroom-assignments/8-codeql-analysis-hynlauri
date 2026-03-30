@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 const allowedDir = "./safe-files"
@@ -23,9 +25,14 @@ func main() {
 
 func readFileHandler(w http.ResponseWriter, r *http.Request) {
 	filename := r.URL.Query().Get("file")
-	path := allowedDir + "/" + filename
+	cleanFile := filepath.Clean(filename)
+	if cleanFile == "." || strings.HasPrefix(cleanFile, "..") || filepath.IsAbs(cleanFile) {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
 
-	data, err := ioutil.ReadFile(path)
+	path := filepath.Join(allowedDir, cleanFile)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
@@ -35,9 +42,13 @@ func readFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func execHandler(w http.ResponseWriter, r *http.Request) {
-	cmd := r.URL.Query().Get("cmd")
+	cmdParam := r.URL.Query().Get("cmd")
+	if cmdParam != "ls" {
+		http.Error(w, "Command is not allowed", http.StatusForbidden)
+		return
+	}
 
-	out, err := exec.Command("sh", "-c", cmd).Output()
+	out, err := exec.Command("ls").Output()
 	if err != nil {
 		http.Error(w, "Command failed", http.StatusInternalServerError)
 		return

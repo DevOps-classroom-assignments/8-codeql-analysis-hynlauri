@@ -50,10 +50,24 @@ jobs:
       - name: Run container
         run: docker run -d -p 8080:8080 --name go-web-server go-web-server
 
-      - name: Test /readfile
+      - name: Wait for service
         run: |
-          sleep 5
-          curl --fail "http://localhost:8080/readfile?file=hello.txt"
+          for i in {1..15}; do
+            if curl -fsS "http://localhost:8080/readfile?file=hello.txt" > /tmp/readfile.out; then
+              break
+            fi
+            sleep 2
+          done
+          test -s /tmp/readfile.out
+
+      - name: Verify response
+        run: |
+          cat /tmp/readfile.out
+          grep -q "Hello World" /tmp/readfile.out
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs go-web-server
 
       - name: Cleanup
         if: always()
