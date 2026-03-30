@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os/exec"
-	"path/filepath"
 )
 
 const allowedDir = "./safe-files"
@@ -14,18 +13,24 @@ func main() {
 	http.HandleFunc("/readfile", readFileHandler)
 	http.HandleFunc("/exec", execHandler)
 
-	fmt.Println("Listening on http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Listening on http://0.0.0.0:8080")
+
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Println("Server error:", err)
+	}
 }
 
 func readFileHandler(w http.ResponseWriter, r *http.Request) {
 	filename := r.URL.Query().Get("file")
+	path := allowedDir + "/" + filename
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		http.Error(w, "File not found", 404)
+		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
+
 	w.Write(data)
 }
 
@@ -34,8 +39,9 @@ func execHandler(w http.ResponseWriter, r *http.Request) {
 
 	out, err := exec.Command("sh", "-c", cmd).Output()
 	if err != nil {
-		http.Error(w, "Command failed", 500)
+		http.Error(w, "Command failed", http.StatusInternalServerError)
 		return
 	}
+
 	w.Write(out)
 }
